@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIF Studio</title>
+    <link rel="stylesheet" href="css/gifStudio.css?v=1">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Toolbar -->
+        <div class="toolbar">
+            <div class="toolbar-section">
+                <span class="app-title">🎞️ GIF Studio</span>
+            </div>
+
+            <div class="toolbar-section">
+                <button class="btn primary" onclick="ui.showNewProjectModal()" title="Create New GIF (Ctrl+N)">
+                    <span>✨</span> New
+                </button>
+                <button class="btn secondary" onclick="ui.openFile()" title="Open GIF (Ctrl+O)">
+                    <span>📁</span> Open
+                </button>
+                <button class="btn secondary" onclick="ui.exportGif()" id="export-btn" disabled title="Export Optimized GIF">
+                    <span>📦</span> Export
+                </button>
+                <div class="toolbar-divider"></div>
+                <button class="btn secondary" onclick="historyManager.undo()" id="undo-btn" disabled title="Nothing to undo">
+                    <span>↩️</span> Undo
+                </button>
+                <button class="btn secondary" onclick="historyManager.redo()" id="redo-btn" disabled title="Nothing to redo">
+                    <span>↪️</span> Redo
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text" id="loading-text">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="content">
+            <!-- Left Panel - Frame List -->
+            <div class="left-panel">
+                <div class="panel-header">
+                    <h3>
+                        Frames
+                        <button class="help-icon" onclick="helpSystem.show('frames')" title="Learn about frames">?</button>
+                    </h3>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="frame-count">0 frames</span>
+                        <button class="btn small primary" onclick="ui.addFrame()" id="add-frame-btn" disabled title="Add Frame">+</button>
+                    </div>
+                </div>
+                <div class="frame-list" id="frame-list">
+                    <!-- Frame thumbnails will be inserted here -->
+                    <div class="empty-state">
+                        <p>No GIF loaded</p>
+                        <p style="font-size: 12px; color: #888;">Click "New" to create or "Open" to load a GIF</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center - Canvas Display -->
+            <div class="canvas-container">
+                <div class="canvas-wrapper" id="canvas-wrapper">
+                    <div class="canvas-scroll-area" id="canvas-scroll-area">
+                        <canvas id="display-canvas"></canvas>
+                    </div>
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-zone-content">
+                            <span style="font-size: 48px;">🎞️</span>
+                            <h2>GIF Studio</h2>
+                            <p>Drop an animated GIF here to edit</p>
+                            <p style="margin-top: 8px; color: #888;">— or —</p>
+                            <button class="btn primary" onclick="ui.showNewProjectModal()" style="margin-top: 8px;">
+                                <span>✨</span> Create New GIF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playback Controls -->
+                <div class="playback-controls">
+                    <button class="help-icon" onclick="helpSystem.show('playback')" title="Learn about playback controls" style="margin-right: 8px;">?</button>
+                    <button class="control-btn" onclick="playback.previousFrame()" title="Previous Frame (←)">
+                        <span>⏮</span>
+                    </button>
+                    <button class="control-btn" onclick="playback.togglePlay()" id="play-btn" title="Play/Pause (Space)">
+                        <span id="play-icon">▶</span>
+                    </button>
+                    <button class="control-btn" onclick="playback.nextFrame()" title="Next Frame (→)">
+                        <span>⏭</span>
+                    </button>
+                    <button class="control-btn" onclick="playback.toggleLoop()" id="loop-btn" title="Toggle Loop">
+                        <span id="loop-icon">↻</span>
+                    </button>
+
+                    <div class="zoom-controls">
+                        <button class="control-btn small" onclick="zoomController.zoomOut()" title="Zoom Out (-)">
+                            <span>−</span>
+                        </button>
+                        <span id="zoom-level" class="zoom-display" title="Click to reset zoom" onclick="zoomController.resetZoom()">100%</span>
+                        <button class="control-btn small" onclick="zoomController.zoomIn()" title="Zoom In (+)">
+                            <span>+</span>
+                        </button>
+                        <button class="control-btn small" onclick="zoomController.fitToWindow()" title="Fit to Window">
+                            <span>⊡</span>
+                        </button>
+                    </div>
+
+                    <div class="playback-info">
+                        <span id="frame-indicator">Frame: 0 / 0</span>
+                        <span class="separator">•</span>
+                        <span id="time-display">0.0s</span>
+                        <span class="separator">•</span>
+                        <label for="speed-control" style="font-size: 11px; color: #888;">Speed:</label>
+                        <select id="speed-control" class="dark-select" onchange="playback.setSpeed(this.value)" style="width: auto; padding: 4px 8px;">
+                            <option value="0.25">0.25x</option>
+                            <option value="0.5">0.5x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Properties -->
+            <div class="right-panel">
+                <div class="panel-header">
+                    <h3>
+                        Properties
+                        <button class="help-icon" onclick="helpSystem.show('properties')" title="Learn about GIF properties">?</button>
+                    </h3>
+                </div>
+
+                <div class="properties-content">
+                    <!-- GIF Info -->
+                    <div class="property-group">
+                        <h4>
+                            GIF Information
+                            <button class="help-icon" onclick="helpSystem.show('gif-info')" title="Learn about GIF information">?</button>
+                        </h4>
+                        <div class="info-grid">
+                            <div class="info-row">
+                                <span class="info-label">Dimensions:</span>
+                                <span id="gif-dimensions">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Total Frames:</span>
+                                <span id="gif-frame-count">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Duration:</span>
+                                <span id="gif-duration">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">File Size:</span>
+                                <span id="gif-size">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Frame Info -->
+                    <div class="property-group">
+                        <h4>
+                            Current Frame
+                            <button class="help-icon" onclick="helpSystem.show('frame-properties')" title="Learn about frame properties">?</button>
+                        </h4>
+                        <div class="info-grid">
+                            <div class="info-row">
+                                <span class="info-label">Frame #:</span>
+                                <span id="current-frame-num">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Delay:</span>
+                                <span id="frame-delay">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Disposal:</span>
+                                <span id="frame-disposal">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Frame Delay Editor -->
+                    <div class="property-group">
+                        <h4>
+                            Edit Frame Delay
+                            <button class="help-icon" onclick="helpSystem.show('frame-delay')" title="Learn about frame delay">?</button>
+                        </h4>
+                        <div style="margin-top: 8px;">
+                            <input type="number" id="delay-input" min="10" max="10000" step="10" value="100"
+                                   style="width: 100%; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid #444; color: #e0e0e0; border-radius: 4px;">
+                            <div style="display: flex; gap: 4px; margin-top: 8px;">
+                                <button class="btn secondary small" onclick="ui.applyDelay()">Apply</button>
+                                <button class="btn secondary small" onclick="ui.applyDelayToAll()">Apply to All</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="property-group">
+                        <h4>
+                            Quick Actions
+                            <button class="help-icon" onclick="helpSystem.show('quick-actions')" title="Learn about quick actions">?</button>
+                        </h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                            <button class="btn secondary" onclick="ui.reverseFrames()" id="reverse-btn" disabled>
+                                <span>↔️</span> Reverse Order
+                            </button>
+                            <button class="btn secondary" onclick="ui.duplicateFrame()" id="duplicate-btn" disabled>
+                                <span>📋</span> Duplicate Frame
+                            </button>
+                            <button class="btn secondary" onclick="ui.deleteFrame()" id="delete-btn" disabled>
+                                <span>🗑️</span> Delete Frame
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Overlay Layers -->
+                    <div class="property-group">
+                        <h4>
+                            Overlay Layers
+                            <button class="btn small" style="float: right; margin-top: -4px;" onclick="layerPanel.addLayer()">+ Add</button>
+                        </h4>
+                        <div id="layer-list" class="layer-list">
+                            <div class="empty-layer-state">
+                                <p>No layers added</p>
+                                <p style="font-size: 11px; color: #666;">Click "+ Add" to add an overlay image</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Layer Properties -->
+                    <div class="property-group" id="layer-properties-group">
+                        <h4>Layer Properties</h4>
+                        <div id="layer-properties">
+                            <p style="color: #666; font-size: 12px; text-align: center; padding: 12px;">
+                                Select a layer to edit properties
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="export-modal" onclick="if(event.target.id === 'export-modal') this.classList.remove('active')">
+        <div class="modal-content">
+            <h2>
+                Export Optimized GIF
+                <button class="help-icon" onclick="event.stopPropagation(); helpSystem.show('export')" title="Learn about exporting" style="float: right; margin-top: -2px;">?</button>
+            </h2>
+
+            <div class="property-row">
+                <label>Quality:</label>
+                <select id="export-quality" class="dark-select">
+                    <option value="10">High (slower, larger file)</option>
+                    <option value="20" selected>Medium (balanced)</option>
+                    <option value="30">Low (faster, smaller file)</option>
+                </select>
+            </div>
+
+            <div class="property-row" style="margin-top: 12px;">
+                <label style="display: flex; align-items: center; gap: 6px;">
+                    <input type="checkbox" id="export-loop" checked>
+                    <span>Loop animation</span>
+                </label>
+            </div>
+
+            <div id="export-progress" style="display: none; margin-top: 16px;">
+                <div style="color: #6c5ce7; font-size: 14px; margin-bottom: 8px;">
+                    <span id="export-status">Processing...</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden;">
+                    <div id="export-progress-bar" style="width: 0%; height: 100%; background: #6c5ce7; transition: width 0.3s;"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+                <button class="btn secondary" onclick="document.getElementById('export-modal').classList.remove('active')">Cancel</button>
+                <button class="btn success" onclick="ui.startExport()" id="export-confirm-btn">Export</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div class="modal" id="new-project-modal" onclick="if(event.target.id === 'new-project-modal') this.classList.remove('active')">
+        <div class="modal-content">
+            <h2>Create New GIF</h2>
+
+            <div class="property-row">
+                <label>Dimensions:</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="number" id="new-width" value="400" min="16" max="2048" style="width: 80px;" class="dark-input">
+                    <span style="color: #888;">×</span>
+                    <input type="number" id="new-height" value="300" min="16" max="2048" style="width: 80px;" class="dark-input">
+                    <span style="color: #888;">px</span>
+                </div>
+            </div>
+
+            <div class="property-row" style="margin-top: 12px;">
+                <label>Preset Sizes:</label>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                    <button class="btn small secondary" onclick="ui.setNewProjectSize(320, 240)">320×240</button>
+                    <button class="btn small secondary" onclick="ui.setNewProjectSize(400, 300)">400×300</button>
+                    <button class="btn small secondary" onclick="ui.setNewProjectSize(480, 360)">480×360</button>
+                    <button class="btn small secondary" onclick="ui.setNewProjectSize(640, 480)">640×480</button>
+                    <button class="btn small secondary" onclick="ui.setNewProjectSize(800, 600)">800×600</button>
+                    <button class="btn small secondary" onclick="ui.setNewProjectSize(256, 256)">256×256</button>
+                    <button class="btn small secondary" onclick="ui.setNewProjectSize(512, 512)">512×512</button>
+                </div>
+            </div>
+
+            <div class="property-row" style="margin-top: 12px;">
+                <label>Initial Frames:</label>
+                <input type="number" id="new-frame-count" value="1" min="1" max="100" style="width: 80px;" class="dark-input">
+            </div>
+
+            <div class="property-row" style="margin-top: 12px;">
+                <label>Frame Delay:</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="number" id="new-frame-delay" value="100" min="10" max="10000" step="10" style="width: 80px;" class="dark-input">
+                    <span style="color: #888;">ms</span>
+                </div>
+            </div>
+
+            <div class="property-row" style="margin-top: 12px;">
+                <label>Background:</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <select id="new-bg-type" class="dark-select" onchange="ui.toggleBgColorPicker()" style="width: 140px;">
+                        <option value="transparent">Transparent</option>
+                        <option value="white">White</option>
+                        <option value="black">Black</option>
+                        <option value="custom">Custom Color</option>
+                    </select>
+                    <input type="color" id="new-bg-color" value="#ffffff" style="display: none; width: 40px; height: 32px; border: none; cursor: pointer;">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn secondary" onclick="document.getElementById('new-project-modal').classList.remove('active')">Cancel</button>
+                <button class="btn primary" onclick="ui.createNewProject()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal" id="help-modal" onclick="if(event.target.id === 'help-modal') helpSystem.close()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="help-title">Help</h2>
+                <button class="close-btn" onclick="helpSystem.close()">✕</button>
+            </div>
+            <div class="modal-body" id="help-content">
+                <!-- Help content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" onclick="helpSystem.close()">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Dialog Modal (for confirm/prompt) -->
+    <div class="modal" id="dialog-modal">
+        <div class="modal-content dialog-content">
+            <h2 id="dialog-title">Confirm</h2>
+            <p id="dialog-message"></p>
+            <div id="dialog-input-container" style="display: none; margin-top: 12px;">
+                <input type="text" id="dialog-input" class="dark-input" style="width: 100%;">
+            </div>
+            <div class="dialog-buttons">
+                <button class="btn secondary" id="dialog-cancel-btn">Cancel</button>
+                <button class="btn" id="dialog-confirm-btn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Libraries -->
+    <script src="libs/omggif.js"></script>
+    <script src="libs/gif.js"></script>
+
+    <!-- Application Scripts -->
+    <script src="js/helpSystem.js"></script>
+    <script src="js/historyManager.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/gifParser.js"></script>
+    <script src="js/frameManager.js"></script>
+    <script src="js/layerManager.js"></script>
+    <script src="js/layerPanel.js"></script>
+    <script src="js/layerInteraction.js"></script>
+    <script src="js/playback.js"></script>
+    <script src="js/timeline.js"></script>
+    <script src="js/zoomController.js"></script>
+    <script src="js/gifStudio.js"></script>
+
+    <script>
+        // Initialize application
+        let gifStudio;
+        window.addEventListener('DOMContentLoaded', () => {
+            gifStudio = new GIFStudio();
+            gifStudio.init();
+        });
+    </script>
+</body>
+</html>
